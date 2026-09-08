@@ -32,8 +32,10 @@ async def save_analysis(user_id: str, filename: str, analysis_result: Dict) -> O
     doc = {
         "user_id": user_id,
         "filename": filename,
-        "ats_score": serializable_result.get("ats_score", 0),
-        "keyword_match": serializable_result.get("keyword_match", 0),
+        # analyses.ats_score / keyword_match are integer columns — round floats
+        # to fit, the full-precision values live in analysis_result JSONB.
+        "ats_score": round(float(serializable_result.get("ats_score", 0) or 0)),
+        "keyword_match": round(float(serializable_result.get("keyword_match", 0) or 0)),
         "missing_keywords": serializable_result.get("missing_keywords", []),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "analysis_result": serializable_result,

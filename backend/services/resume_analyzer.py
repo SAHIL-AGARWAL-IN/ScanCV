@@ -96,6 +96,18 @@ def analyze_full_resume(
 
     issues_summary = generate_issues_summary(detailed_feedback)
 
+    # Fill the flat summary fields from detailed_feedback — the txt summary
+    # and frontend report on these, but they were never populated.
+    critical_issues = [
+        fb.issue_title for fb in detailed_feedback
+        if fb.severity_level.lower() == 'high'
+    ]
+    suggestions = []
+    for fb in detailed_feedback:
+        if fb.how_to_fix:
+            suggestions.append(fb.how_to_fix)
+        suggestions.extend(fb.action_items or [])
+
     validated_raw   = skill_validation.get('validated_skills', [])
     unvalidated_raw = skill_validation.get('unvalidated_skills', [])
     total_skills    = len(validated_raw) + len(unvalidated_raw)
@@ -127,6 +139,8 @@ def analyze_full_resume(
         },
         "issues_summary":    issues_summary,
         "detailed_feedback": detailed_feedback,
+        "critical_issues":   critical_issues,
+        "suggestions":       suggestions,
         "jd_match_analysis": jd_comparison_result,
         "jd_comparison":     jd_comparison_result,
         "skills":            skills,

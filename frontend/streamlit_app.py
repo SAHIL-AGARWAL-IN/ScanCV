@@ -47,11 +47,16 @@ if (
         st.session_state.user_email    = result["email"]
         st.rerun()
 
-#Load custom CSS
+#Load custom CSS + Material Symbols icon font
 def load_css():
+    # Material Symbols Rounded — one consistent icon set across the app.
+    st.markdown(
+        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />',
+        unsafe_allow_html=True,
+    )
     try:
         css_path = Path(__file__).parent / 'assets' / 'styles.css'
-        with open(css_path, 'r') as f:
+        with open(css_path, 'r', encoding='utf-8') as f:
             return f'<style>{f.read()}</style>'
     except FileNotFoundError:
         return ''

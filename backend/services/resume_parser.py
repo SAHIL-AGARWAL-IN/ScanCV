@@ -38,7 +38,7 @@ def validate_file(file_data:bytes, filename:str)->Tuple[bool, str, Optional[str]
         ), None
     
     if file_size_bytes==0:
-        return False, 'uploade file is empty...please check the file you have uploaded and try again'
+        return False, 'Uploaded file is empty. Please check the file you uploaded and try again.', None
     
     try:
         mime_type=magic.from_buffer(file_data, mime=True)
@@ -46,11 +46,23 @@ def validate_file(file_data:bytes, filename:str)->Tuple[bool, str, Optional[str]
         return False, f"error deteminin the file type : {e}", None
     
     if mime_type not in SUPPORTED_MIME_TYPES:
-        supported=', '.join(SUPPORTED_MIME_TYPES.keys()).upper()
-        return False, (
-            f'Unsupported file type: {mime_type}. '
-            f'Please upload one of: {supported}.'
-        ), None
+        # python-magic's bundled Windows DB (python-magic-bin) cannot detect
+        # OOXML documents — a genuine .docx comes back as octet-stream.
+        # Fall back to the file extension before rejecting.
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        ext_mime = {
+            'pdf':  'application/pdf',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'doc':  'application/msword',
+        }.get(ext)
+        if ext_mime and ext_mime in SUPPORTED_MIME_TYPES:
+            mime_type = ext_mime
+        else:
+            supported=' '.join(SUPPORTED_MIME_TYPES.keys()).upper()
+            return False, (
+                f'Unsupported file type: {mime_type}. '
+                f'Please upload one of: {supported}.'
+            ), None
     
     
 

@@ -109,7 +109,10 @@ async def analyze_resume(
         matched_keywords=result.get('matched_keywords', []),
         skills=list(result.get('skills', [])[:20]),
         jd_comparison=jd_comparison_result,
-        interpretation=result.get('interpretation', '')
+        interpretation=result.get('interpretation', ''),
+        strengths=result.get('strengths', []),
+        critical_issues=result.get('critical_issues', []),
+        suggestions=result.get('suggestions', []),
     )
 
 

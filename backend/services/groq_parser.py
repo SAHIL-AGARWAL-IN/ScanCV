@@ -8,7 +8,7 @@ from groq import Groq
 logger=logging.getLogger('ats_resume_scorer')
 
 
-GROQ_MODEL='llama-3.3-70b-versatile'
+GROQ_MODEL=os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b')  # llama-3.3-70b-versatile was deprecated by Groq
 
 _client=None
 
@@ -115,7 +115,7 @@ def parse_resume(raw_text: str)->Dict:
     raw_response=_call_groq(client, RESUME_SYSTEM_PROMPT, prompt)
     result=_try_parse_json(raw_response)
 
-    if result is None:
+    if result is not None:
         return _validate_resume_result(result)
     
 

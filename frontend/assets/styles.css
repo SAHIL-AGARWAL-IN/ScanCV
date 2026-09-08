@@ -1721,3 +1721,264 @@ Animation utility classes */
     max-width: 300px;
     margin: 0 auto;
 }
+
+/* ============================================
+   V2 — RESULTS REDESIGN (components + history)
+   All inline styles from the Python components
+   live here now, driven by the tokens above.
+   ============================================ */
+
+/* Soft semantic backgrounds (light) + matching text colors.
+   The *-text tokens are what Python components inject as inline
+   `color: var(--success-text)` etc. */
+:root {
+    --success-soft: #ECFDF5;
+    --warning-soft: #FFFBEB;
+    --danger-soft:  #FEF2F2;
+    --info-soft:    #EFF6FF;
+    --success-text: #059669;
+    --warning-text: #D97706;
+    --danger-text:  #DC2626;
+    --info-text:    #2563EB;
+}
+
+/* Material Symbols — loaded once in streamlit_app.py */
+.ms-icon {
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+    margin-right: 0.35rem;
+    user-select: none;
+}
+
+.ms-icon-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+}
+
+/* Section header with icon */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0.25rem 0 0.75rem 0;
+}
+.section-header .ms-icon { margin-right: 0; }
+
+/* Score hero — gauge left, headline right */
+.score-hero {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xl);
+    flex-wrap: wrap;
+    background: var(--background-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--spacing-lg);
+}
+.score-hero-interpretation {
+    color: var(--text-secondary);
+    font-size: var(--font-size-base);
+    margin: 0;
+    max-width: 560px;
+}
+.score-hero-kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+/* Component score bars (score breakdown) */
+.component-bar-row { margin-bottom: var(--spacing-md); }
+.component-bar-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+.component-bar-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.component-bar-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+.component-bar-track {
+    background: var(--border-light);
+    border-radius: var(--radius-full);
+    height: 10px;
+    overflow: hidden;
+}
+.component-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 0.6s ease;
+}
+
+/* Issue cards (detailed feedback) */
+.issue-card {
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--danger-color);
+    background: var(--background-white);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    margin-bottom: var(--spacing-sm);
+}
+.issue-card-title {
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.issue-card-meta {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    margin-left: 0.5rem;
+}
+.severity-group-header {
+    text-transform: capitalize;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin: var(--spacing-lg) 0 var(--spacing-sm) 0;
+}
+
+/* Action items */
+.action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: var(--background-light);
+    border: 1px solid var(--border-light);
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+}
+.action-item .ms-icon { margin-right: 0; flex-shrink: 0; margin-top: 2px; }
+.action-item-source {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
+/* Keyword chips (JD comparison) */
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.65rem;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+.chip .ms-icon { margin-right: 0; font-size: 15px; }
+.chip-good  { background: var(--success-soft); color: var(--success-text); }
+.chip-bad   { background: var(--danger-soft);  color: var(--danger-text); }
+.chip-info  { background: var(--info-soft);    color: var(--info-text); }
+.chip-plain { background: var(--background-light); color: var(--text-secondary); }
+
+/* Skill lists */
+.skill-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.3rem 0;
+    color: var(--text-primary);
+}
+.skill-row-sim { color: var(--text-muted); font-size: var(--font-size-sm); }
+
+/* History page — cards + trend */
+.history-card {
+    background: var(--background-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+.history-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+.history-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+}
+.history-meta {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.score-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.9rem;
+    border-radius: var(--radius-full);
+    font-weight: 800;
+    font-size: var(--font-size-lg);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Stat strip (history header) */
+.stat-strip {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing-lg);
+}
+.stat-strip-item { display: flex; flex-direction: column; }
+.stat-strip-value {
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+.stat-strip-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Tabs with icons */
+.stTabs .tab-selector { display: inline-flex; align-items: center; gap: 0.4rem; }
+

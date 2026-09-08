@@ -1,9 +1,7 @@
+# Theme pinned to light — the app's custom CSS is light-only.
+# (The built-in Light/Dark picker is hidden when [theme] is set.)
 [theme]
-primaryColor = "#4F46E5"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F8FAFC"
-textColor = "#1E293B"
-font = "sans serif"
+base = "light"
 
 [server]
 maxUploadSize = 10
@@ -16,4 +14,4 @@ gatherUsageStats = false
 
 [client]
 showSidebarNavigation = true
-toolbarMode = "minimal"
+toolbarMode = "auto"

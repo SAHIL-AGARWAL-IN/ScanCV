@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 import streamlit as st
 
-from frontend.components._helpers import get_severity_style
+from frontend.components._helpers import get_severity_style, icon
 
 
 SEVERITY_ORDER = ["critical", "high", "medium", "low"]
@@ -17,7 +17,7 @@ def _group_by_severity(issues: List[Dict[str, Any]]) -> Dict[str, List[Dict[str,
 
 
 def _render_issue(issue: Dict[str, Any]) -> None:
-    icon, text_color, bg_color = get_severity_style(issue.get("severity_level"))
+    sym, text_color, bg_color = get_severity_style(issue.get("severity_level"))
     title = issue.get("issue_title", "Untitled issue")
     impact = issue.get("ats_impact", "")
     explanation = issue.get("explanation", "")
@@ -28,10 +28,9 @@ def _render_issue(issue: Dict[str, Any]) -> None:
 
     st.markdown(
         f"""
-        <div style="border-left:4px solid {text_color}; background-color:{bg_color};
-                    padding:0.75rem 1rem; border-radius:6px; margin-bottom:0.5rem;">
-            <strong style="color:{text_color};">{icon} {title}</strong>
-            <span style="color:#666; margin-left:0.5rem; font-size:0.85rem;">{impact}</span>
+        <div class="issue-card" style="border-left-color:{text_color}; background:{bg_color};">
+            <span class="issue-card-title" style="color:{text_color};">{icon(sym, 18, 'currentColor')}{title}</span>
+            <span class="issue-card-meta">{impact}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -58,7 +57,10 @@ def display_detailed_feedback(analysis: Dict[str, Any]) -> None:
     if not issues:
         return  # backend produced no per-issue feedback this run
 
-    st.markdown("### 🔍 Detailed Feedback")
+    st.markdown(
+        f'<div class="section-header">{icon("manage_search", 22)}Detailed Feedback</div>',
+        unsafe_allow_html=True,
+    )
     st.caption(f"{len(issues)} issue(s) flagged — grouped by severity.")
 
     grouped = _group_by_severity(issues)
@@ -66,6 +68,9 @@ def display_detailed_feedback(analysis: Dict[str, Any]) -> None:
         items = grouped.get(level, [])
         if not items:
             continue
-        st.markdown(f"#### {level.title()} ({len(items)})")
+        st.markdown(
+            f'<div class="severity-group-header">{level.title()} ({len(items)})</div>',
+            unsafe_allow_html=True,
+        )
         for issue in items:
             _render_issue(issue)

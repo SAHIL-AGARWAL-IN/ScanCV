@@ -28,6 +28,7 @@ pdfplumber>=0.11
 PyPDF2>=3.0
 python-docx>=1.1
 python-magic>=0.4.27
+python-magic-bin>=0.4.14; sys_platform == 'win32'  # bundles the libmagic DLL — plain python-magic segfaults on Windows
 
 # ── Backend: PDF report generation ──
 jinja2>=3.1
@@ -42,3 +43,7 @@ PyJWT[crypto]>=2.8           # verifies Supabase access tokens (HS256)
 streamlit>=1.32
 requests>=2.31
 supabase>=2.4                # frontend auth client (email/password + OAuth)
+plotly>=6.0                  # score gauge + radar + history trend charts
+
+# ── Dev / tests ──
+pytest>=8.0                  # run the test suite: python -m pytest tests/

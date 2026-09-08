@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Tuple
 
 import streamlit as st
 
+from frontend.components._helpers import get_severity_style, icon
+
 
 SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
@@ -29,9 +31,22 @@ def display_action_items(analysis: Dict[str, Any]) -> None:
     if not items:
         return
 
-    st.markdown("### ⚡ Action Items")
+    st.markdown(
+        f'<div class="section-header">{icon("bolt", 22)}Action Items</div>',
+        unsafe_allow_html=True,
+    )
     st.caption("Concrete steps to improve your score, sorted by urgency.")
 
     for level, source, action in items:
-        icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(level, "🟢")
-        st.markdown(f"- {icon} **[{source}]** {action}")
+        sym, color, _bg = get_severity_style(level)
+        st.markdown(
+            f"""
+            <div class="action-item">
+                {icon(sym, 18, color)}
+                <span>
+                    <span class="action-item-source">{source}</span><br>{action}
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )

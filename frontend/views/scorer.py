@@ -1,4 +1,5 @@
 from typing import Optional
+import threading
 
 import requests
 import streamlit as st
@@ -29,6 +30,72 @@ def _read_jd(jd_file, jd_text: str) -> str:
     return ""
 
 
+def _analyze_with_progress(resume_file, access_token: str, job_description: str) -> dict:
+    """
+    Run the analyze request while showing staged status + an eased progress bar.
+
+    The HTTP call runs in a worker thread; the main thread animates a progress
+    bar that decelerates toward 90% (so it never looks stuck, and never
+    finishes early). Only the worker touches the network, only the main
+    thread touches Streamlit elements.
+    """
+    import time
+
+    STAGES = [
+        (0,  "Uploading resume to backend…"),
+        (6,  "Extracting text and structure from your file…"),
+        (14, "Parsing skills, projects and experience (Groq LLM)…"),
+        (26, "Scoring against ATS criteria…"),
+        (40, "Validating skills against project evidence…"),
+    ]
+
+    result: dict = {}
+    error: Optional[requests.RequestException] = None
+
+    def _worker():
+        nonlocal result, error
+        try:
+            result = api_client.analyze_resume(
+                resume_file=resume_file,
+                access_token=access_token,
+                job_description=job_description,
+            )
+        except requests.RequestException as exc:
+            error = exc
+
+    status = st.status("Analyzing your resume…", expanded=True)
+    stage_text = st.empty()
+    progress = st.progress(0, text="")
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+
+    start = time.time()
+    while thread.is_alive():
+        elapsed = time.time() - start
+        # Ease-out curve: fast start, decelerates, asymptotes at 90%.
+        pct = min(90.0, 90.0 * (1 - (1 / (1 + elapsed / 8.0))))
+        progress.progress(int(pct), text=f"{elapsed:.0f}s elapsed")
+        for at, label in STAGES:
+            if elapsed >= at:
+                stage_text.markdown(f":gray[{label}]")
+        time.sleep(0.25)
+
+    thread.join()
+
+    if error is not None:
+        status.update(label="Analysis failed", state="error", expanded=True)
+        raise error
+
+    progress.progress(100, text="Done")
+    status.update(
+        label=f"Analysis complete in {time.time() - start:.0f}s",
+        state="complete",
+        expanded=False,
+    )
+    return result
+
+
 def _show_backend_error(exc: Exception) -> None:
     """Translate a `requests` exception into a friendly Streamlit error."""
     if isinstance(exc, requests.ConnectionError):
@@ -49,17 +116,46 @@ def _summary_text(analysis: dict) -> str:
     """Tiny client-side text summary for the Download button."""
     score = analysis.get("ATS_score", analysis.get("ats_score", 0))
     lines = [f"ATS Score: {score:.0f}/100", ""]
+
+    cs = analysis.get("component_scores") or {}
+    if cs:
+        lines.append("COMPONENT BREAKDOWN:")
+        for label, key in [
+            ("Formatting", "formatting"),
+            ("Keywords", "keywords"),
+            ("Content", "content"),
+            ("Skill Validation", "skill_validation"),
+            ("ATS Compatibility", "ats_compatibility"),
+        ]:
+            if key in cs:
+                lines.append(f"  - {label}: {cs[key]}")
+        lines.append("")
+
+    if analysis.get("interpretation"):
+        lines.append(analysis["interpretation"])
+        lines.append("")
+
     if analysis.get("strengths"):
         lines.append("STRENGTHS:")
         lines.extend(f"  - {s}" for s in analysis["strengths"])
         lines.append("")
+
     if analysis.get("critical_issues"):
         lines.append("CRITICAL ISSUES:")
         lines.extend(f"  - {s}" for s in analysis["critical_issues"])
         lines.append("")
+
     if analysis.get("suggestions"):
         lines.append("SUGGESTIONS:")
         lines.extend(f"  - {s}" for s in analysis["suggestions"])
+        lines.append("")
+
+    missing = analysis.get("missing_keywords") or []
+    if missing:
+        lines.append("MISSING KEYWORDS:")
+        lines.extend(f"  - {k}" for k in missing[:15])
+        lines.append("")
+
     return "\n".join(lines)
 
 
@@ -208,12 +304,11 @@ def render() -> None:
     job_description = _read_jd(jd_file, jd_text) if analysis_mode == "Job Description Comparison" else ""
 
     try:
-        with st.spinner("Analyzing your resume... this can take 10–30 seconds."):
-            analysis = api_client.analyze_resume(
-                resume_file=resume_file,
-                access_token=access_token,
-                job_description=job_description,
-            )
+        analysis = _analyze_with_progress(
+            resume_file=resume_file,
+            access_token=access_token,
+            job_description=job_description,
+        )
     except requests.RequestException as exc:
         _show_backend_error(exc)
         return
