@@ -16,9 +16,20 @@ APP_TITLE='ATS RESUME ANALYZER API'
 APP_VERSION='1.0.0'
 APP_DESCRIPTION='analyse resumes against job description using nlp + ml'
 
-ALLOWED_ORIGINS = [
-    'https://appapppy-ktwxupi73vqhjzweksze9d.streamlit.app'  # no trailing slash — Origin header never has one
-]  
+_allowed_origins_env = os.getenv('ALLOWED_ORIGINS', '')
+if _allowed_origins_env:
+    ALLOWED_ORIGINS = [origin.strip() for origin in _allowed_origins_env.split(',') if origin.strip()]
+else:
+    ALLOWED_ORIGINS = [
+        'http://localhost:8501',
+        'http://127.0.0.1:8501',
+        'http://localhost:7860',
+        'http://127.0.0.1:7860',
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+        'https://appapppy-ktwxupi73vqhjzweksze9d.streamlit.app',
+    ]
+
 
 #file 
 MAX_FILE_SIZE_MB=5

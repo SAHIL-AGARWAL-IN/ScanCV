@@ -1,3 +1,13 @@
+---
+title: ScanCV ATS Resume Scorer
+emoji: 🎯
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ATS Resume Scorer
 
 A full-stack web app that scores how well a resume survives an Applicant Tracking System (ATS), explains *why* it got that score, and tracks your progress as you improve it.
