@@ -29,6 +29,12 @@ PyPDF2>=3.0
 python-docx>=1.1
 python-magic>=0.4.27
 python-magic-bin>=0.4.14; sys_platform == 'win32'  # bundles the libmagic DLL — plain python-magic segfaults on Windows
+pypdfium2>=4.0
+pytesseract>=0.3.10
+
+# ── Backend: JD web scraping ──
+beautifulsoup4>=4.12
+soupsieve>=2.5
 
 # ── Backend: PDF report generation ──
 jinja2>=3.1

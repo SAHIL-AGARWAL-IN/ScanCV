@@ -14,8 +14,8 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-echo "Starting Streamlit frontend on port 7860..."
-streamlit run frontend/streamlit_app.py --server.port 7860 --server.address 0.0.0.0 &
+echo "Starting Streamlit frontend on port ${PORT:-7860}..."
+streamlit run frontend/streamlit_app.py --server.port "${PORT:-7860}" --server.address 0.0.0.0 &
 FRONTEND_PID=$!
 
 # Handle shutdown signals

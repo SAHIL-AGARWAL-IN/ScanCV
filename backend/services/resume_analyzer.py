@@ -68,8 +68,20 @@ def analyze_full_resume(
     from backend.utils.file_utils import (
         get_default_grammar_results, get_default_location_results,
     )
-    grammar_results  = get_default_grammar_results()
-    location_results = get_default_location_results()
+    from backend.services.ats_scorer import detect_location_info
+    from backend.services.grammar_checker import check_grammar_and_spelling
+
+    try:
+        location_results = detect_location_info(resume_text, nlp)
+    except Exception as loc_exc:
+        logger.warning(f"Location detection failed, using fallback: {loc_exc}")
+        location_results = get_default_location_results()
+
+    try:
+        grammar_results = check_grammar_and_spelling(resume_text, skills=skills, nlp=nlp)
+    except Exception as gram_exc:
+        logger.warning(f"Grammar check failed, using fallback: {gram_exc}")
+        grammar_results = get_default_grammar_results()
 
     scores = calculate_overall_score(
         text=resume_text,
@@ -156,6 +168,8 @@ def analyze_full_resume(
         "interpretation":    scores.get('overall_interpretation', ''),
         "skill_validation_details": skill_validation_details,
         "experience_months": experience_months,
+        "grammar_results": grammar_results,
+        "location_results": location_results,
     }
 
 

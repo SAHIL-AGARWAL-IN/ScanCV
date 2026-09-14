@@ -3,8 +3,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from backend.api.auth import get_current_user
+from backend.api.auth import get_current_user, get_optional_user
 from backend.models.schemas import AnalysisResponse, ComponentScores, JDComparison, SkillValidationDetails
+from pydantic import BaseModel
 from backend.utils.file_utils import (
     get_default_grammar_results,
     get_default_location_results,
@@ -25,7 +26,7 @@ async def analyze_resume(
     request: Request,
     resume: UploadFile = File(..., description='Resume file — PDF or DOCX, max 5 MB'),
     job_description: str = Form('', description='Job description text (optional)'),
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_optional_user),
 ):
     warnings: List[str] = []
 
@@ -54,16 +55,27 @@ async def analyze_resume(
             detail=f'Could not read or parse the resume: {exc}',
         )
 
-    #Full Analysis Pipeline 
+    # Full Analysis Pipeline with Caching & Async Worker Offloading
     try:
+        import asyncio
+        from backend.services.cache_service import get_cache_key, get_cached_analysis, set_cached_analysis
         from backend.services.resume_analyzer import analyze_full_resume
-        
-        result = analyze_full_resume(
-            resume_text=resume_text,
-            nlp=nlp,
-            embedder=embedder,
-            job_description=job_description
-        )
+
+        cache_key = get_cache_key(file_bytes, job_description)
+        cached_result = get_cached_analysis(cache_key)
+
+        if cached_result is not None:
+            logger.info("Serving analysis from SHA-256 in-memory cache")
+            result = cached_result
+        else:
+            result = await asyncio.to_thread(
+                analyze_full_resume,
+                resume_text=resume_text,
+                nlp=nlp,
+                embedder=embedder,
+                job_description=job_description,
+            )
+            set_cached_analysis(cache_key, result)
     except Exception as exc:
         logger.error(f'Full analysis pipeline failed: {exc}')
         raise HTTPException(status_code=500, detail=f'Analysis pipeline failed: {exc}')
@@ -116,11 +128,12 @@ async def analyze_resume(
     )
 
 
-    try:
-        from backend.database.supabase_db import save_analysis
-        await save_analysis(user_id, filename, result)
-    except Exception as exc:
-        logger.warning(f'History save failed (non-blocking): {exc}')
+    if user_id != 'guest_user':
+        try:
+            from backend.database.supabase_db import save_analysis
+            await save_analysis(user_id, filename, result)
+        except Exception as exc:
+            logger.warning(f'History save failed (non-blocking): {exc}')
 
     return response
 
@@ -166,7 +179,7 @@ async def delete_history_entry(
 @router.post('/generate-pdf')
 async def generate_pdf(
     data: AnalysisResponse,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_optional_user),
 ):
     from backend.services.report_generator import generate_html_reports
     from backend.services.pdf_export import generate_combined_pdf
@@ -218,3 +231,22 @@ async def generate_history_pdf(
     except Exception as e:
         logger.error(f'Failed to generate PDF for history: {e}')
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {e}")
+
+
+class JDUrlRequest(BaseModel):
+    url: str
+
+
+@router.post('/extract-jd-url')
+async def extract_jd_from_url(payload: JDUrlRequest):
+    """Extract job requirements from any company career or job posting URL."""
+    from backend.services.jd_scraper import scrape_job_url
+    import asyncio
+    try:
+        data = await asyncio.to_thread(scrape_job_url, payload.url)
+        return data
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as exc:
+        logger.error(f'URL scraping failed: {exc}')
+        raise HTTPException(status_code=500, detail=f'Failed to extract job description: {exc}')

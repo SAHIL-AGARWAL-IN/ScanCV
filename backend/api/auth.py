@@ -106,3 +106,26 @@ def get_current_user(
             detail='Token missing subject claim',
         )
     return user_id
+
+
+def get_optional_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    """
+    Returns user_id if valid Bearer token is provided.
+    If no token is present or credentials equal 'guest'/'demo', returns 'guest_user'.
+    """
+    if creds is None or not creds.credentials:
+        return 'guest_user'
+
+    token = creds.credentials.strip()
+    if token.lower() in ('guest', 'demo', 'anonymous'):
+        return 'guest_user'
+
+    try:
+        payload = _verify_token(token)
+        return payload.get('sub') or 'guest_user'
+    except Exception as exc:
+        logger.warning(f"Optional auth token verification failed: {exc}, treating as guest")
+        return 'guest_user'
+

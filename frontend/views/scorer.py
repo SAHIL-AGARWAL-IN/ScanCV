@@ -159,8 +159,20 @@ def _summary_text(analysis: dict) -> str:
     return "\n".join(lines)
 
 
+class MockUploadedFile:
+    def __init__(self, name: str, data: bytes, content_type: str = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"):
+        self.name = name
+        self._data = data
+        self.type = content_type
+        self.size = len(data)
+
+    def getvalue(self) -> bytes:
+        return self._data
+
+
 def _render_upload_area(analysis_mode: str):
     """Two-column upload widgets. Returns (resume_file, jd_file, jd_text)."""
+    from pathlib import Path
     left, right = st.columns(2)
 
     with left:
@@ -172,7 +184,22 @@ def _render_upload_area(analysis_mode: str):
             key="resume_upload",
         )
         if resume_file:
+            st.session_state.pop("sample_resume", None)
             st.success(f"✅ {resume_file.name} ({resume_file.size / 1024:.1f} KB)")
+        elif st.session_state.get("sample_resume"):
+            resume_file = st.session_state["sample_resume"]
+            st.success(f"✅ Active Sample: {resume_file.name} ({resume_file.size / 1024:.1f} KB)")
+            if st.button("✕ Clear Sample Resume", key="clear_sample"):
+                st.session_state.pop("sample_resume", None)
+                st.rerun()
+        else:
+            st.caption("Don't have a resume handy? Try a pre-loaded profile:")
+            if st.button("✨ Load Sample Resume: Senior SWE", key="load_sample_swe", use_container_width=True):
+                sample_path = Path(__file__).resolve().parents[1] / "assets" / "samples" / "sample_swe_resume.docx"
+                if sample_path.exists():
+                    with open(sample_path, "rb") as f:
+                        st.session_state["sample_resume"] = MockUploadedFile("sample_swe_resume.docx", f.read())
+                    st.rerun()
 
     jd_file: Optional[object] = None
     jd_text = ""
@@ -182,11 +209,11 @@ def _render_upload_area(analysis_mode: str):
             st.markdown("### 📋 Job Description")
             jd_method = st.radio(
                 "Input method:",
-                ["Paste Text", "Upload .txt File"],
+                ["📝 Paste Text", "🌐 Import from URL", "📁 Upload .txt File"],
                 horizontal=True,
                 key="jd_input_method",
             )
-            if jd_method == "Upload .txt File":
+            if jd_method == "📁 Upload .txt File":
                 jd_file = st.file_uploader(
                     "Choose JD file (.txt only)",
                     type=["txt"],
@@ -194,6 +221,42 @@ def _render_upload_area(analysis_mode: str):
                 )
                 if jd_file:
                     st.success(f"✅ {jd_file.name}")
+            elif jd_method == "🌐 Import from URL":
+                st.caption("Paste a link from LinkedIn, Indeed, Greenhouse, Lever, or any company career page:")
+                url_col, btn_col = st.columns([3, 1])
+                with url_col:
+                    jd_url = st.text_input(
+                        "Job Posting URL:",
+                        placeholder="https://company.com/careers/... or job board link",
+                        label_visibility="collapsed",
+                        key="jd_url_input",
+                    )
+                with btn_col:
+                    fetch_btn = st.button("📥 Fetch JD", use_container_width=True)
+
+                if fetch_btn and jd_url.strip():
+                    try:
+                        with st.spinner("Fetching and extracting job requirements with AI..."):
+                            data = api_client.extract_jd_from_url(
+                                jd_url.strip(),
+                                access_token=st.session_state.get("access_token"),
+                            )
+                            st.session_state["extracted_jd_content"] = data.get("job_description", "")
+                            st.session_state["extracted_jd_title"] = data.get("title", "Job Posting")
+                            st.success(f"✅ Extracted: {st.session_state['extracted_jd_title']}")
+                    except Exception as exc:
+                        _show_backend_error(exc)
+
+                current_extracted = st.session_state.get("extracted_jd_content", "")
+                jd_text = st.text_area(
+                    "Job Description (editable):",
+                    value=current_extracted,
+                    height=200,
+                    placeholder="Job description will appear here after fetching...",
+                    key="jd_text_from_url",
+                )
+                if jd_text:
+                    st.success(f"✅ {len(jd_text)} characters loaded")
             else:
                 jd_text = st.text_area(
                     "Paste job description text:",
@@ -221,7 +284,7 @@ def _render_export_buttons(analysis: dict) -> None:
                 with st.spinner("Generating PDF on backend..."):
                     pdf_bytes = api_client.generate_pdf(
                         analysis,
-                        access_token=st.session_state["access_token"],
+                        access_token=st.session_state.get("access_token") or "guest",
                     )
                 st.session_state["scorer_pdf_bytes"] = pdf_bytes
             except requests.RequestException as exc:
@@ -275,7 +338,7 @@ def render() -> None:
     st.markdown("---")
 
     if not resume_file:
-        st.info("👆 Upload your resume to begin.")
+        st.info("👆 Upload your resume or load a sample resume above to begin.")
         # If we have a prior result in session, render it again.
         if st.session_state.get("scorer_analysis"):
             display_results_dashboard(st.session_state["scorer_analysis"])
@@ -283,8 +346,8 @@ def render() -> None:
 
     access_token = st.session_state.get("access_token")
     if not access_token:
-        st.warning("⚠️ Sign in from the sidebar to analyze a resume.")
-        return
+        st.info("👤 **Guest Mode Active**: Running full ATS analysis as guest. (Sign in from sidebar if you wish to persist your score history across sessions).")
+        access_token = "guest"
 
     _, mid, _ = st.columns([1, 2, 1])
     with mid:

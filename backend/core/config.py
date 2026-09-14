@@ -23,6 +23,8 @@ else:
     ALLOWED_ORIGINS = [
         'http://localhost:8501',
         'http://127.0.0.1:8501',
+        'http://localhost:8502',
+        'http://127.0.0.1:8502',
         'http://localhost:7860',
         'http://127.0.0.1:7860',
         'http://localhost:8000',

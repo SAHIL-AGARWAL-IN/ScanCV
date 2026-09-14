@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import requests
 import streamlit as st
@@ -19,8 +19,10 @@ def _backend_url() -> str:
         return DEFAULT_BACKEND_URL
 
 
-def _auth_headers(access_token: str) -> Dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
+def _auth_headers(access_token: Optional[str] = None) -> Dict[str, str]:
+    if access_token:
+        return {"Authorization": f"Bearer {access_token}"}
+    return {}
 
 
 def health_check() -> Dict[str, Any]:
@@ -87,3 +89,15 @@ def get_history_pdf(analysis_id: str, access_token: str) -> bytes:
     )
     response.raise_for_status()
     return response.content
+
+
+def extract_jd_from_url(url: str, access_token: Optional[str] = None) -> Dict[str, Any]:
+    response = requests.post(
+        f"{_backend_url()}/api/v1/extract-jd-url",
+        json={"url": url},
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+

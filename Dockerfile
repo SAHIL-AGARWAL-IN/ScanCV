@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     shared-mime-info \
     libmagic1 \
+    tesseract-ocr \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

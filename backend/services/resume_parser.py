@@ -138,26 +138,80 @@ def _extract_pdf_with_pypdf2(file_data: bytes) -> str:
     return text.strip()
 
 
-def extract_text_from_pdf(file_data: bytes) -> str:
-    try: 
-        result, used_fallback=with_fallback(
-        _extract_pdf_with_pdfplumber, 
-        _extract_pdf_with_pypdf2, 
-        file_data, 
-        log_fallback=True
-    )
-    
-        if used_fallback:
-            log_info('PDF EXTRACTION succeded using the PyPDF2 fallback', context='resume_parser')
-        return result
-        
-    except Exception as e:
-        log_error(e, context='extract_text_from_pdf')
+def _extract_pdf_with_ocr(file_data: bytes) -> str:
+    """Fallback for scanned/image-only PDFs using pypdfium2 and pytesseract."""
+    import os
+    import shutil
+    try:
+        import pypdfium2 as pdfium
+        import pytesseract
+        from PIL import Image
+    except ImportError as ie:
         raise FileParsingError(
-            'Failed to extract text from PDF using both pdfplumber and PyPDF2. '
-            'The PDF may be corrupted, password-protected, or contain only scanned images. '
-            'Please ensure it contains selectable text.'
-        ) from e
+            "Scanned / image-only PDF detected. Please upload a PDF with selectable text."
+        ) from ie
+
+    # Look for tesseract binary in PATH and common Windows directories
+    if not shutil.which("tesseract"):
+        common_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.expanduser(r"~\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"),
+        ]
+        for p in common_paths:
+            if os.path.isfile(p):
+                pytesseract.pytesseract.tesseract_cmd = p
+                break
+        else:
+            raise FileParsingError(
+                "Scanned / image-only PDF detected (no selectable text found). "
+                "To scan image-only resumes, install Tesseract-OCR, or re-save your resume with selectable text."
+            )
+
+    try:
+        pdf = pdfium.PdfDocument(file_data)
+        ocr_text_parts = []
+        for page_index in range(len(pdf)):
+            page = pdf[page_index]
+            bitmap = page.render(scale=2.0)
+            pil_image = bitmap.to_pil()
+            text = pytesseract.image_to_string(pil_image)
+            if text and text.strip():
+                ocr_text_parts.append(text.strip())
+
+        combined_text = "\n\n".join(ocr_text_parts)
+        if not combined_text.strip():
+            raise FileParsingError("OCR completed but could not detect readable text in the image.")
+
+        log_info(f"Successfully extracted {len(combined_text)} characters via OCR", context="resume_parser")
+        return combined_text.strip()
+    except FileParsingError:
+        raise
+    except Exception as exc:
+        log_error(exc, context="ocr_pdf_extraction")
+        raise FileParsingError(f"Failed to extract text via OCR: {exc}") from exc
+
+
+def extract_text_from_pdf(file_data: bytes) -> str:
+    extracted = ""
+    try: 
+        result, used_fallback = with_fallback(
+            _extract_pdf_with_pdfplumber, 
+            _extract_pdf_with_pypdf2, 
+            file_data, 
+            log_fallback=True
+        )
+        if used_fallback:
+            log_info('PDF EXTRACTION succeeded using the PyPDF2 fallback', context='resume_parser')
+        extracted = result
+    except Exception as e:
+        log_warning(f"Standard PDF text extraction failed: {e}. Trying OCR fallback...", context='extract_text_from_pdf')
+
+    if extracted and len(extracted.strip()) >= 60:
+        return extracted
+
+    log_info("Extracted text empty or under 60 chars. Invoking OCR fallback...", context='resume_parser')
+    return _extract_pdf_with_ocr(file_data)
     
 
 def extract_text_from_docx(file_data: bytes) -> str:

@@ -67,10 +67,10 @@ def render():
     
     with col3:
         st.markdown("""
-        ### 🔒 Privacy First
-        All analysis runs locally with no external API calls. Your resume data never leaves your system.
+        ### ⚡ Hybrid AI Intelligence
+        Ultra-fast structured extraction powered by Groq paired with local spaCy NLP and semantic sentence transformers for privacy-conscious, enterprise-grade scoring.
         
-        **100% Private & Secure**
+        **Fast, Private & Transparent**
         """)
     
     st.markdown("---")
