@@ -2,9 +2,70 @@ import streamlit as st
 import sys
 from pathlib import Path
 
+import os
+import subprocess
+import time
+import requests
+
 # Put the repo root on sys.path so `from frontend.views import ...` resolves
 # regardless of the directory streamlit was launched from.
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Propagate Streamlit secrets to environment variables so the FastAPI backend process receives them
+try:
+    if hasattr(st, "secrets"):
+        for _k, _v in st.secrets.items():
+            if isinstance(_v, str) and _k not in os.environ:
+                os.environ[_k] = _v
+            elif hasattr(_v, "items"):
+                for _subk, _subv in _v.items():
+                    if isinstance(_subv, str) and _subk not in os.environ:
+                        os.environ[_subk] = _subv
+except Exception:
+    pass
+
+@st.cache_resource(show_spinner=False)
+def _ensure_fastapi_backend_running():
+    """Starts the FastAPI backend in background if not already alive (e.g. on Streamlit Cloud)."""
+    try:
+        r = requests.get("http://127.0.0.1:8000/api/v1/health", timeout=1.0)
+        if r.status_code == 200:
+            return True
+    except Exception:
+        pass
+
+    root_dir = str(Path(__file__).resolve().parent.parent)
+    cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "backend.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+    ]
+    subprocess.Popen(
+        cmd,
+        cwd=root_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True if sys.platform != "win32" else False,
+    )
+
+    # Wait up to 30 seconds for the backend to become ready
+    for _ in range(30):
+        try:
+            r = requests.get("http://127.0.0.1:8000/api/v1/health", timeout=1.0)
+            if r.status_code == 200:
+                return True
+        except Exception:
+            time.sleep(1)
+
+    return False
+
+_ensure_fastapi_backend_running()
+
 
 # Configure page
 st.set_page_config(

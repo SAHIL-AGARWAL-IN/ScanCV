@@ -25,9 +25,16 @@ async def lifespan(app:FastAPI):
         app.state.nlp = spacy.load(SPACY_MODEL_PRIMARY)
         logger.info(f'Loaded {SPACY_MODEL_PRIMARY}')
     except OSError:
-        logger.warning(f'{SPACY_MODEL_PRIMARY} not found — falling back to {SPACY_MODEL_SECONDARY}')
-        app.state.nlp = spacy.load(SPACY_MODEL_SECONDARY)
-        logger.info(f'Loaded {SPACY_MODEL_SECONDARY} (fallback)')
+        logger.warning(f'{SPACY_MODEL_PRIMARY} not found — trying secondary or auto-downloading...')
+        try:
+            app.state.nlp = spacy.load(SPACY_MODEL_SECONDARY)
+            logger.info(f'Loaded {SPACY_MODEL_SECONDARY} (fallback)')
+        except OSError:
+            logger.info(f"Downloading spaCy model {SPACY_MODEL_PRIMARY} on demand...")
+            import spacy.cli
+            spacy.cli.download(SPACY_MODEL_PRIMARY)
+            app.state.nlp = spacy.load(SPACY_MODEL_PRIMARY)
+            logger.info(f'Loaded {SPACY_MODEL_PRIMARY} (after download)')
 
     logger.info(f'Loading SentenceTransformer: {SENTENCE_TRANSFORMER_MODEL}')
     from sentence_transformers import SentenceTransformer
