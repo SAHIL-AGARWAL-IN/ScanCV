@@ -1,0 +1,32 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Secrets & Local configs (Pass these via Cloud platform environment variables!)
+.env
+frontend/.streamlit/secrets.toml
+
+# Version control
+.git
+.gitignore
+
+# Python cache & tests
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+tests/
+
+# Logs
+*.log
+backend/logs/
+
+# Research & Local IDE configs
+jupyter notebooks/
+.claude/
+.gemini/
+
+# OS files
+.DS_Store
+Thumbs.db
