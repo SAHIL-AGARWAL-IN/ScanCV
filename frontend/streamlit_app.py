@@ -84,6 +84,7 @@ for key, default in [
     ("user_email", None),
     ("auth_error", None),
     ("auth_info", None),
+    ("prompt_set_password", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -95,7 +96,11 @@ if "error_description" in st.query_params or "error" in st.query_params:
     st.query_params.clear()
     st.rerun()
 
-# If we just came back from Google OAuth, Supabase appends `?code=<authcode>`
+# If we arrived from a password recovery link
+if "reset" in st.query_params or st.query_params.get("type") == "recovery":
+    st.session_state.prompt_set_password = True
+
+# If we just came back from Google OAuth or password reset link, Supabase appends `?code=<authcode>`
 # to the redirect URL. Exchange it for a session before rendering anything.
 if (
     not st.session_state.access_token
@@ -107,7 +112,7 @@ if (
     # Always clear the ?code= param so a refresh doesn't try to re-exchange.
     st.query_params.clear()
     if "error" in result:
-        st.session_state.auth_error = f"Google sign-in failed: {result['error']}"
+        st.session_state.auth_error = f"Sign-in failed: {result['error']}"
     else:
         st.session_state.access_token  = result["access_token"]
         st.session_state.refresh_token = result["refresh_token"]
@@ -130,6 +135,31 @@ def load_css():
         return ''
 
 st.markdown(load_css(), unsafe_allow_html=True)
+
+# If arriving from a password reset or setup link, prompt immediately at the top of the app
+if st.session_state.access_token and st.session_state.get("prompt_set_password"):
+    with st.container():
+        st.info("🔑 **Password Setup**: You were signed in via the link. Please choose your new password below:")
+        with st.form("set_password_banner_form"):
+            b_c1, b_c2 = st.columns([3, 1])
+            with b_c1:
+                b_new_pw = st.text_input("New Password (min 6 characters)", type="password", key="banner_pw_val")
+            with b_c2:
+                st.write("")
+                st.write("")
+                b_saved = st.form_submit_button("Save Password", type="primary", use_container_width=True)
+            if b_saved:
+                if len(b_new_pw) >= 6:
+                    from frontend.services import supabase_client
+                    res = supabase_client.update_user_password(b_new_pw)
+                    if res.get("success"):
+                        st.success("✅ Password successfully set! You can now log in using either Google or this password.")
+                        st.session_state.prompt_set_password = False
+                        st.rerun()
+                    else:
+                        st.error(res.get("error", "Failed to update password."))
+                else:
+                    st.warning("Password must be at least 6 characters.")
 
 # Initialize session state for view management
 if 'current_view' not in st.session_state:
@@ -169,7 +199,7 @@ with st.sidebar:
                 st.session_state[k] = None
             st.rerun()
 
-        with st.expander("🔒 Set or Change Password"):
+        with st.expander("🔒 Set or Change Password", expanded=st.session_state.get("prompt_set_password", False)):
             new_pw = st.text_input("New password (min 6 chars)", type="password", key="change_pw_input")
             if st.button("Save password", key="btn_save_new_pw", use_container_width=True):
                 if len(new_pw) >= 6:

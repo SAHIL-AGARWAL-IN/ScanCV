@@ -168,9 +168,10 @@ def reset_password_for_email(email: str) -> Dict[str, Any]:
         return {'error': 'Please enter a valid email address.'}
     try:
         redirect_url = get_oauth_redirect_url()
+        target_url = f"{redirect_url}?reset=true"
         get_client().auth.reset_password_for_email(
             email.strip(),
-            {'redirect_to': redirect_url},
+            {'redirect_to': target_url},
         )
         return {'success': True}
     except Exception as exc:
