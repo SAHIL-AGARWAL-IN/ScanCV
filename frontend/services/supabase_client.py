@@ -16,10 +16,15 @@ except ImportError:
 
 
 def _secret(key: str, section: str = 'supabase') -> str:
-    """Read from env first, then fall back to st.secrets[section][key]."""
+    """Read from env first, then root st.secrets, then st.secrets[section]."""
     val = os.getenv(key, '')
     if val:
         return val
+    try:
+        if hasattr(st, "secrets") and key in st.secrets and isinstance(st.secrets[key], str):
+            return st.secrets[key]
+    except Exception:
+        pass
     try:
         return st.secrets[section][key]
     except (KeyError, FileNotFoundError, AttributeError):
@@ -30,22 +35,28 @@ SUPABASE_URL = _secret('SUPABASE_URL')
 SUPABASE_ANON_KEY = _secret('SUPABASE_ANON_KEY')
 
 def get_oauth_redirect_url() -> str:
-    """Computes redirect URI: explicit env var -> detected host header -> production default -> localhost."""
-    env_url = os.getenv('AUTH_REDIRECT_URL') or _secret('redirect_uri', 'google_oauth')
-    if env_url:
-        return env_url.rstrip('/')
+    """Computes redirect URI: explicit env/secret -> reverse proxy header -> Streamlit Cloud detection -> localhost."""
+    # 1. Explicit env var or secret override
+    explicit = os.getenv('AUTH_REDIRECT_URL') or _secret('AUTH_REDIRECT_URL') or _secret('redirect_uri', 'google_oauth')
+    if explicit:
+        return explicit.rstrip('/')
 
+    # 2. Check X-Forwarded-Host from Streamlit Cloud reverse proxy
     try:
         if hasattr(st, "context") and hasattr(st.context, "headers"):
             headers = st.context.headers
-            host = headers.get("host") or headers.get("Host")
-            if host:
-                proto = "https" if not (host.startswith("localhost") or host.startswith("127.0.0.1")) else "http"
-                return f"{proto}://{host}"
+            fwd_host = headers.get("x-forwarded-host") or headers.get("X-Forwarded-Host")
+            if fwd_host and "streamlit.app" in fwd_host:
+                return f"https://{fwd_host}".rstrip('/')
+
+            raw_host = headers.get("host") or headers.get("Host")
+            if raw_host and "streamlit.app" in raw_host:
+                return f"https://{raw_host}".rstrip('/')
     except Exception:
         pass
 
-    if os.path.exists("/home/appuser") or os.getenv("STREAMLIT_SERVER_PORT"):
+    # 3. Streamlit Cloud Linux container environment detection
+    if os.path.exists("/home/appuser"):
         return "https://scancv.streamlit.app"
 
     return "http://localhost:8501"
