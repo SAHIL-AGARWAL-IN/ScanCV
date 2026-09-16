@@ -168,14 +168,42 @@ with st.sidebar:
             for k in ("access_token", "refresh_token", "user_id", "user_email"):
                 st.session_state[k] = None
             st.rerun()
+
+        with st.expander("🔒 Set or Change Password"):
+            new_pw = st.text_input("New password (min 6 chars)", type="password", key="change_pw_input")
+            if st.button("Save password", key="btn_save_new_pw", use_container_width=True):
+                if len(new_pw) >= 6:
+                    res = supabase_client.update_user_password(new_pw)
+                    if res.get("success"):
+                        st.success("✅ Password set! You can now sign in with either Google or this password.")
+                    else:
+                        st.error(res.get("error", "Failed to update password."))
+                else:
+                    st.warning("Password must be at least 6 characters.")
     else:
-        # Signed-out state: tabs for sign-in vs sign-up + Google OAuth button.
+        # Signed-out state: Google OAuth at top + tabs for email sign-in vs sign-up
         if st.session_state.auth_error:
             st.error(st.session_state.auth_error)
             st.session_state.auth_error = None
         if st.session_state.auth_info:
             st.info(st.session_state.auth_info)
             st.session_state.auth_info = None
+
+        # 1. Primary 1-click Google OAuth button at top
+        oauth = supabase_client.google_oauth_url()
+        if "error" in oauth:
+            st.caption(f"Google sign-in unavailable: {oauth['error']}")
+        else:
+            st.link_button(
+                "🌐 Continue with Google",
+                url=oauth["url"],
+                use_container_width=True,
+            )
+
+        st.markdown(
+            "<div style='text-align:center; margin: 10px 0 8px 0; color:#94a3b8; font-size: 0.78rem; letter-spacing: 0.5px;'>── OR WITH EMAIL ──</div>",
+            unsafe_allow_html=True,
+        )
 
         tab_in, tab_up = st.tabs(["Sign in", "Sign up"])
 
@@ -194,6 +222,24 @@ with st.sidebar:
                     st.session_state.user_id       = result["user_id"]
                     st.session_state.user_email    = result["email"]
                 st.rerun()
+
+            with st.expander("🔑 Need to set or reset password?"):
+                st.caption(
+                    "Registered via Google or forgot password? Enter your email to receive a password setup link:"
+                )
+                reset_email = st.text_input("Your Account Email", key="reset_email_val")
+                if st.button("Send setup link", key="btn_send_pw_link", use_container_width=True):
+                    if reset_email.strip():
+                        res = supabase_client.reset_password_for_email(reset_email.strip())
+                        if res.get("success"):
+                            st.session_state.auth_info = (
+                                f"Password setup link sent to {reset_email.strip()}! Check your inbox."
+                            )
+                            st.rerun()
+                        else:
+                            st.error(res.get("error", "Could not send reset link."))
+                    else:
+                        st.warning("Please enter your email address above.")
 
         with tab_up:
             with st.form("signup_form", clear_on_submit=False):
@@ -214,19 +260,6 @@ with st.sidebar:
                     st.session_state.user_id       = result["user_id"]
                     st.session_state.user_email    = result["email"]
                 st.rerun()
-
-        st.markdown("<div style='text-align:center; margin: 8px 0; color:#94a3b8;'>or</div>",
-                    unsafe_allow_html=True)
-
-        oauth = supabase_client.google_oauth_url()
-        if "error" in oauth:
-            st.caption(f"Google sign-in unavailable: {oauth['error']}")
-        else:
-            st.link_button(
-                "Continue with Google",
-                url=oauth["url"],
-                use_container_width=True,
-            )
 
 # Main content area - render based on current view
 if st.session_state.current_view == 'landing':

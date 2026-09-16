@@ -159,6 +159,40 @@ def exchange_code_for_session(auth_code: str) -> Dict[str, Any]:
         return {'error': _humanize(exc)}
 
 
+def reset_password_for_email(email: str) -> Dict[str, Any]:
+    """Sends a password recovery/setup email to link a password or recover access."""
+    err = _missing_config()
+    if err:
+        return {'error': err}
+    if not email or '@' not in email:
+        return {'error': 'Please enter a valid email address.'}
+    try:
+        redirect_url = get_oauth_redirect_url()
+        get_client().auth.reset_password_for_email(
+            email.strip(),
+            {'redirect_to': redirect_url},
+        )
+        return {'success': True}
+    except Exception as exc:
+        logger.warning(f'reset_password_for_email failed: {exc}')
+        return {'error': _humanize(exc)}
+
+
+def update_user_password(new_password: str) -> Dict[str, Any]:
+    """Updates the current authenticated user's password."""
+    err = _missing_config()
+    if err:
+        return {'error': err}
+    if len(new_password) < 6:
+        return {'error': 'Password must be at least 6 characters.'}
+    try:
+        get_client().auth.update_user({'password': new_password})
+        return {'success': True}
+    except Exception as exc:
+        logger.warning(f'update_user_password failed: {exc}')
+        return {'error': _humanize(exc)}
+
+
 def sign_out() -> None:
     if _missing_config():
         return
@@ -172,9 +206,9 @@ def _humanize(exc: Exception) -> str:
     msg = str(exc)
     # supabase errors arrive as "<status>: {json blob}" — surface the human bit
     if 'invalid_grant' in msg.lower() or 'invalid login' in msg.lower():
-        return 'Wrong email or password'
+        return 'Wrong email or password. If you originally registered with Google, please click "Continue with Google" or reset your password below.'
     if 'user already registered' in msg.lower() or 'already been registered' in msg.lower():
-        return 'An account with this email already exists — try signing in'
+        return 'An account with this email already exists. If you previously registered using Google, sign in with Google or reset your password.'
     if 'password should be at least' in msg.lower():
-        return 'Password too short (Supabase default is 6 characters)'
+        return 'Password too short (minimum 6 characters required)'
     return msg
