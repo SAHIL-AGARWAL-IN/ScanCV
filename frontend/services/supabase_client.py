@@ -29,11 +29,29 @@ def _secret(key: str, section: str = 'supabase') -> str:
 SUPABASE_URL = _secret('SUPABASE_URL')
 SUPABASE_ANON_KEY = _secret('SUPABASE_ANON_KEY')
 
-OAUTH_REDIRECT_URL = (
-    os.getenv('AUTH_REDIRECT_URL')
-    or _secret('redirect_uri', 'google_oauth')
-    or 'http://localhost:8501'
-)
+def get_oauth_redirect_url() -> str:
+    """Computes redirect URI: explicit env var -> detected host header -> production default -> localhost."""
+    env_url = os.getenv('AUTH_REDIRECT_URL') or _secret('redirect_uri', 'google_oauth')
+    if env_url:
+        return env_url.rstrip('/')
+
+    try:
+        if hasattr(st, "context") and hasattr(st.context, "headers"):
+            headers = st.context.headers
+            host = headers.get("host") or headers.get("Host")
+            if host:
+                proto = "https" if not (host.startswith("localhost") or host.startswith("127.0.0.1")) else "http"
+                return f"{proto}://{host}"
+    except Exception:
+        pass
+
+    if os.path.exists("/home/appuser") or os.getenv("STREAMLIT_SERVER_PORT"):
+        return "https://scancv.streamlit.app"
+
+    return "http://localhost:8501"
+
+
+OAUTH_REDIRECT_URL = get_oauth_redirect_url()
 
 
 def _missing_config() -> str | None:
@@ -96,9 +114,10 @@ def google_oauth_url() -> Dict[str, Any]:
     if err:
         return {'error': err}
     try:
+        redirect_url = get_oauth_redirect_url()
         resp = get_client().auth.sign_in_with_oauth({
             'provider': 'google',
-            'options': {'redirect_to': OAUTH_REDIRECT_URL},
+            'options': {'redirect_to': redirect_url},
         })
         return {'url': resp.url}
     except Exception as exc:
@@ -115,10 +134,11 @@ def exchange_code_for_session(auth_code: str) -> Dict[str, Any]:
     try:
         storage_key = f'{client.auth._storage_key}-code-verifier'
         code_verifier = client.auth._storage.get_item(storage_key) or ''
+        redirect_url = get_oauth_redirect_url()
         resp = client.auth.exchange_code_for_session({
             'auth_code': auth_code,
             'code_verifier': code_verifier,
-            'redirect_to': OAUTH_REDIRECT_URL,
+            'redirect_to': redirect_url,
         })
         if not resp.session or not resp.user:
             return {'error': 'OAuth exchange returned no session'}

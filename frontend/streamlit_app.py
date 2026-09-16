@@ -88,6 +88,13 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
+# Handle OAuth error query params returned by Supabase/Google
+if "error_description" in st.query_params or "error" in st.query_params:
+    err_desc = st.query_params.get("error_description") or st.query_params.get("error")
+    st.session_state.auth_error = f"Google sign-in error: {err_desc}"
+    st.query_params.clear()
+    st.rerun()
+
 # If we just came back from Google OAuth, Supabase appends `?code=<authcode>`
 # to the redirect URL. Exchange it for a session before rendering anything.
 if (
@@ -97,7 +104,7 @@ if (
     from frontend.services import supabase_client
     result = supabase_client.exchange_code_for_session(st.query_params["code"])
 
-    #Always clear the ?code= param so a refresh doesn't try to re-exchange.
+    # Always clear the ?code= param so a refresh doesn't try to re-exchange.
     st.query_params.clear()
     if "error" in result:
         st.session_state.auth_error = f"Google sign-in failed: {result['error']}"
@@ -106,7 +113,7 @@ if (
         st.session_state.refresh_token = result["refresh_token"]
         st.session_state.user_id       = result["user_id"]
         st.session_state.user_email    = result["email"]
-        st.rerun()
+    st.rerun()
 
 #Load custom CSS + Material Symbols icon font
 def load_css():
